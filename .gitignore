@@ -46,3 +46,4 @@ resultswns3/
 .vscode/settings.json
 
 docs/
+*.csv

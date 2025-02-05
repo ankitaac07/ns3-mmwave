@@ -412,10 +412,10 @@ McUeNetDevice::Receive (Ptr<Packet> p)
       NS_LOG_LOGIC ("IPv6 stack...");
       m_rxCallback (this, p, Ipv6L3Protocol::PROT_NUMBER, Address ());
     }
-  else
-    {
-      NS_ABORT_MSG ("McUeNetDevice::Receive - Unknown IP type...");
-    }
+  //else
+    //{
+    //  NS_ABORT_MSG ("McUeNetDevice::Receive - Unknown IP type...");
+   // }
 }
 
 
