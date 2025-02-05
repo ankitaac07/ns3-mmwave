@@ -218,7 +218,7 @@ EnergyConsumptionUpdate (double totaloldEnergyConsumption, double totalnewEnergy
 {
   if (!energyFile.is_open())
     {
-        energyFile.open("energy_consumption_Building_2_fixedue.csv", std::ios::out | std::ios::app);
+        energyFile.open("energy_consumption_Building_outdoor_fixedue_constpos.csv", std::ios::out | std::ios::app);
         if (energyFile.is_open())
         {
             energyFile << "Time (s),Total Energy Consumption (J),Energy Difference (J)" << std::endl;
@@ -343,12 +343,12 @@ main (int argc, char *argv[])
   StringValue stringValue;
   DoubleValue doubleValue;
   //EnumValue enumValue;
-  GlobalValue::GetValueByName ("numBlocks", uintegerValue);
-  uint32_t numBlocks = uintegerValue.Get ();
-  GlobalValue::GetValueByName ("maxXAxis", doubleValue);
-  double maxXAxis = doubleValue.Get ();
-  GlobalValue::GetValueByName ("maxYAxis", doubleValue);
-  double maxYAxis = doubleValue.Get ();
+  // GlobalValue::GetValueByName ("numBlocks", uintegerValue);
+  // uint32_t numBlocks = uintegerValue.Get ();
+  // GlobalValue::GetValueByName ("maxXAxis", doubleValue);
+  // double maxXAxis = doubleValue.Get ();
+  // GlobalValue::GetValueByName ("maxYAxis", doubleValue);
+  // double maxYAxis = doubleValue.Get ();
 
   double ueInitialPosition = 90;
   double ueFinalPosition = 110;
@@ -459,8 +459,8 @@ main (int argc, char *argv[])
   Config::SetDefault ("ns3::LteRlcUmLowLat::MaxTxBufferSize", UintegerValue (bufferSize * 1024 * 1024));
   Config::SetDefault ("ns3::LteRlcAm::StatusProhibitTimer", TimeValue (MilliSeconds (10.0)));
   Config::SetDefault ("ns3::LteRlcAm::MaxTxBufferSize", UintegerValue (bufferSize * 1024 * 1024));
-  Config::SetDefault ("ns3::MmWaveBearerStatsConnector::MmWaveSinrOutputFilename", StringValue("MmWaveSinrTime_Building_2_fixedUE"));
-
+  Config::SetDefault ("ns3::MmWaveBearerStatsConnector::MmWaveSinrOutputFilename", StringValue("MmWaveSinrTime_Building_outdoor_fixedUE_constpos.txt"));
+  Config::SetDefault ("ns3::MmWaveBearerStatsConnector::UeHandoverStartOutputFilename", StringValue("Ue_handover_constpos.txt"));
   // handover and RT related params
   switch (hoMode)
     {
@@ -552,14 +552,14 @@ main (int argc, char *argv[])
 
   // Positions
   Vector mmw1Position = Vector (50, 70, 3);
-  Vector mmw2Position = Vector (150, 70, 3);
+  Vector mmw2Position = Vector (250, 70, 3);
 
   std::vector<Ptr<Building> > buildingVector;
 
-  double maxBuildingSize = 20;
+  //double maxBuildingSize = 20;
 
-  for (uint32_t buildingIndex = 0; buildingIndex < numBlocks; buildingIndex++)
-    {
+ // for (uint32_t buildingIndex = 0; buildingIndex < numBlocks; buildingIndex++)
+   // {
       Ptr < Building > building;
       building = Create<Building> ();
       /* returns a vecotr where:
@@ -568,19 +568,19 @@ main (int argc, char *argv[])
       * position [2]: coordinates for y min
       * position [3]: coordinates for y max
       */
-      std::pair<Box, std::list<Box> > pairBuildings = GenerateBuildingBounds (maxXAxis, maxYAxis, maxBuildingSize, m_previousBlocks);
-      m_previousBlocks = std::get<1> (pairBuildings);
-      Box box = std::get<0> (pairBuildings);
-      Ptr<UniformRandomVariable> randomBuildingZ = CreateObject<UniformRandomVariable> ();
-      randomBuildingZ->SetAttribute ("Min",DoubleValue (1.6));
-      randomBuildingZ->SetAttribute ("Max",DoubleValue (40));
-      double buildingHeight = randomBuildingZ->GetValue ();
+     // std::pair<Box, std::list<Box> > pairBuildings = GenerateBuildingBounds (maxXAxis, maxYAxis, maxBuildingSize, m_previousBlocks);
+     // m_previousBlocks = std::get<1> (pairBuildings);
+      //Box box = std::get<0> (pairBuildings);
+      //Ptr<UniformRandomVariable> randomBuildingZ = CreateObject<UniformRandomVariable> ();
+      // randomBuildingZ->SetAttribute ("Min",DoubleValue (1.6));
+      // randomBuildingZ->SetAttribute ("Max",DoubleValue (40));
+      //double buildingHeight = randomBuildingZ->GetValue ();
 
-      building->SetBoundaries (Box (box.xMin, box.xMax,
-                                    box.yMin,  box.yMax,
-                                    0.0, buildingHeight));
+      building->SetBoundaries (Box (46, 54,
+                                    48,  56,
+                                    0.0, 20)); 
       buildingVector.push_back (building);
-    }
+   // }
 
 
   // Install Mobility Model
@@ -598,15 +598,15 @@ main (int argc, char *argv[])
   MobilityHelper uemobility;
   Ptr<ListPositionAllocator> uePositionAlloc = CreateObject<ListPositionAllocator> ();
   //uePositionAlloc->Add (Vector (ueInitialPosition, -5, 0));
-  uePositionAlloc->Add (Vector (ueInitialPosition, -5, 1.6));
-  uemobility.SetMobilityModel ("ns3::ConstantVelocityMobilityModel");
+  uePositionAlloc->Add (Vector (50, 60, 1.6));
+  uemobility.SetMobilityModel ("ns3::ConstantPositionMobilityModel");
   uemobility.SetPositionAllocator (uePositionAlloc);
   uemobility.Install (ueNodes);
   BuildingsHelper::Install (ueNodes);
 
   //ueNodes.Get (0)->GetObject<MobilityModel> ()->SetPosition (Vector (ueInitialPosition, -5, 0));
   ueNodes.Get (0)->GetObject<MobilityModel> ()->SetPosition (Vector (ueInitialPosition, -5, 1.6));
-  ueNodes.Get (0)->GetObject<ConstantVelocityMobilityModel> ()->SetVelocity (Vector (0, 0, 0));
+  //ueNodes.Get (0)->GetObject<ConstantVelocityMobilityModel> ()->SetVelocity (Vector (0, 0, 0));
 
   // Install mmWave, lte, mc Devices to the nodes
   NetDeviceContainer lteEnbDevs = mmwaveHelper->InstallLteEnbDevice (lteEnbNodes);
@@ -696,8 +696,8 @@ main (int argc, char *argv[])
   clientApps.Start (Seconds (transientDuration));
   clientApps.Stop (Seconds (simTime - 1));
 
-  Simulator::Schedule (Seconds (transientDuration), &ChangeSpeed, ueNodes.Get (0), Vector (ueSpeed, 0, 0)); // start UE movement after Seconds(0.5)
-  Simulator::Schedule (Seconds (simTime - 1), &ChangeSpeed, ueNodes.Get (0), Vector (0, 0, 0)); // start UE movement after Seconds(0.5)
+ // Simulator::Schedule (Seconds (transientDuration), &ChangeSpeed, ueNodes.Get (0), Vector (ueSpeed, 0, 0)); // start UE movement after Seconds(0.5)
+  //Simulator::Schedule (Seconds (simTime - 1), &ChangeSpeed, ueNodes.Get (0), Vector (0, 0, 0)); // start UE movement after Seconds(0.5)
 
   double numPrints = 0;
   for (int i = 0; i < numPrints; i++)
