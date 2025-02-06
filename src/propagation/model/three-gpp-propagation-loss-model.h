@@ -22,7 +22,7 @@
 
 #include "ns3/propagation-loss-model.h"
 #include "ns3/channel-condition-model.h"
-
+#include "ns3/traced-value.h"
 namespace ns3 {
 
 /**
@@ -86,7 +86,7 @@ public:
    * \returns the ThreeGppPropagationLossModel instance
    */
   ThreeGppPropagationLossModel & operator = (const ThreeGppPropagationLossModel &) = delete;
-
+  TracedValue<double> m_shadowingStd;
 private:
   /**
    * Computes the received power by applying the pathloss model described in
@@ -492,7 +492,6 @@ public:
    */
   ThreeGppUmiStreetCanyonPropagationLossModel & operator = (const ThreeGppUmiStreetCanyonPropagationLossModel &) = delete;
 
-private:
   /**
    * \brief Computes the pathloss between a and b considering that the line of
    *        sight is not obstructed
@@ -540,6 +539,7 @@ private:
    */
   double GetBpDistance (double hUt, double hBs, double distance2D) const;
 
+  private:
   /**
    * \brief Determines hUT and hBS. Overrides the default implementation.
    * \param za the height of the first node in meters

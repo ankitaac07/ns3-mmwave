@@ -36,12 +36,12 @@
 #include <ns3/buildings-module.h>
 #include <ns3/random-variable-stream.h>
 #include <ns3/lte-ue-net-device.h>
-
+#include <ns3/three-gpp-propagation-loss-model.h>
 #include <iostream>
 #include <ctime>
 #include <stdlib.h>
 #include <list>
-
+#include <ns3/object-factory.h>
 
 using namespace ns3;
 using namespace mmwave;
@@ -118,6 +118,12 @@ PrintGnuplottableUeListToFile (std::string filename)
             }
         }
     }
+}
+
+void
+DoubleShadowingStd(double oldValue, double newValue)
+{
+  std::cout << "Traced " << oldValue << " to " << newValue << std::endl;
 }
 
 void
@@ -509,7 +515,8 @@ main (int argc, char *argv[])
   mmwaveHelper->SetEpcHelper (epcHelper);
   mmwaveHelper->SetHarqEnabled (harqEnabled);
   mmwaveHelper->Initialize ();
-
+  static Ptr<ThreeGppUmiStreetCanyonPropagationLossModel> lossModel = CreateObject<ThreeGppUmiStreetCanyonPropagationLossModel>();
+  lossModel->TraceConnectWithoutContext("ShadowingStd", MakeCallback(&DoubleShadowingStd));
   ConfigStore inputConfig;
   inputConfig.ConfigureDefaults ();
 

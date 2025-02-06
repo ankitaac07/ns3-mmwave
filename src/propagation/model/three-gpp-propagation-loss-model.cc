@@ -58,6 +58,10 @@ ThreeGppPropagationLossModel::GetTypeId (void)
                    MakePointerAccessor (&ThreeGppPropagationLossModel::SetChannelConditionModel,
                                         &ThreeGppPropagationLossModel::GetChannelConditionModel),
                    MakePointerChecker<ChannelConditionModel> ())
+    .AddTraceSource ("ShadowingStd",
+                  "Shadowing STD value logger",
+                  MakeTraceSourceAccessor (&ThreeGppPropagationLossModel::m_shadowingStd),
+                  "ns3::TracedValueCallback::Double")
   ;
   return tid;
 }
