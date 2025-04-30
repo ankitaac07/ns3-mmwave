@@ -982,6 +982,7 @@ ThreeGppChannelModel::GetChannel (Ptr<const MobilityModel> aMob,
 
   // retrieve the channel condition
   Ptr<const ChannelCondition> condition = m_channelConditionModel->GetChannelCondition (aMob, bMob);
+  //std::cout << "LOS Condition: " << condition->GetLosCondition() << std::endl;
 
   // Check if the channel is present in the map and return it, otherwise
   // generate a new channel

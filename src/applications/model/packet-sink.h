@@ -29,6 +29,7 @@
 #include "ns3/inet-socket-address.h"
 #include "ns3/seq-ts-size-header.h"
 #include <unordered_map>
+#include "ns3/traced-value.h"
 
 namespace ns3 {
 
@@ -179,7 +180,7 @@ private:
   Address         m_local;        //!< Local address to bind to
   uint64_t        m_totalRx;      //!< Total bytes received
   TypeId          m_tid;          //!< Protocol TypeId
-
+  TracedValue<double> m_totalRxReceived;
   bool            m_enableSeqTsSizeHeader {false}; //!< Enable or disable the export of SeqTsSize header 
 
   /// Traced Callback: received packets, source address.

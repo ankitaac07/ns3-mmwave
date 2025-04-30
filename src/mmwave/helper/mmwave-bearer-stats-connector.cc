@@ -550,6 +550,7 @@ MmWaveBearerStatsConnector::PrintUeStartHandover (uint64_t imsi, uint16_t source
   m_ueHandoverStartOutFile << Simulator::Now ().GetNanoSeconds () / 1.0e9 << " " << imsi << " " << rnti << " " << sourceCellid << " " << targetCellId << std::endl;
 }
 
+
 void
 MmWaveBearerStatsConnector::PrintUeEndHandover (uint64_t imsi, uint16_t targetCellId, uint16_t rnti)
 {

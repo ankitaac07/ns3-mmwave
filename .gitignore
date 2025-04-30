@@ -47,3 +47,7 @@ resultswns3/
 
 docs/
 *.csv
+
+*.png
+*.py
+*.xml

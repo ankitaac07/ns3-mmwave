@@ -42,6 +42,8 @@
 #include <stdlib.h>
 #include <list>
 #include <ns3/object-factory.h>
+#include <ns3/flow-monitor-helper.h>
+#include <ns3/flow-monitor.h>
 
 using namespace ns3;
 using namespace mmwave;
@@ -52,6 +54,53 @@ using namespace mmwave;
  */
 
 NS_LOG_COMPONENT_DEFINE ("McTwoEnbs");
+
+
+// The number of bytes to send in this simulation.
+static const uint32_t totalTxBytes = 100000000;
+static uint32_t currentTxBytes = 0;
+// Perform series of 1040 byte writes (this is a multiple of 26 since
+// we want to detect data splicing in the output stream)
+static const uint32_t writeSize = 1040;
+uint8_t data[writeSize];
+
+void StartFlow (Ptr<Socket>, Ipv4Address, uint16_t);
+void WriteUntilBufferFull (Ptr<Socket>, uint32_t);
+double energyofBS;
+double energyofUe;
+double totalPackets;
+double energy_per_byte;
+// static void 
+// CwndTracer (uint32_t oldval, uint32_t newval)
+// {
+//   NS_LOG_INFO ("Moving cwnd from " << oldval << " to " << newval);
+// }
+
+std::ofstream packetSinkFile("packetsink_0B_Ue6_100MB_3BS.csv", std::ios::out | std::ios::trunc);
+void ReceivedPacket(double totaloldbytesReceived, double totalnewbytesReceived)
+{
+  if (!packetSinkFile.is_open())
+    {
+        packetSinkFile.open("packetsink_0B_Ue6_100MB_3BS.csv", std::ios::out | std::ios::app);
+        if (packetSinkFile.is_open())
+        {
+            packetSinkFile << "Time (s),Total Packets (bytes), Current Packet (bytes), Energy/Bytes" << std::endl;
+        }
+        else
+        {
+            std::cerr << "Error opening file for writing!" << std::endl;
+            return;
+        }
+    }
+    Time currentTime = Simulator::Now ();
+    energy_per_byte = energyofBS/totalPackets;
+    //std::cout << currentTime.GetSeconds () << "," << totalnewEnergyConsumption << "," << (totalnewEnergyConsumption-totaloldEnergyConsumption) <<std::endl;
+    packetSinkFile << currentTime.GetSeconds() << ","
+                 << totalnewbytesReceived << ","
+                 << (totalnewbytesReceived - totaloldbytesReceived) <<","<<energy_per_byte << std::endl;
+  totalPackets = totalnewbytesReceived;
+  
+}
 
 void
 PrintGnuplottableBuildingListToFile (std::string filename)
@@ -218,14 +267,16 @@ OverlapWithAnyPrevious (Box box, std::list<Box> m_previousBlocks)
 }
 
 std::ofstream energyFile;
+std::ofstream packettracefile("Packet_Trace_0B_Ue6_100MB_3BS.csv", std::ios::out | std::ios::trunc);
+std::ofstream energyFileBS("energy_consumptionBS_0B_Ue6_100MB_3BS.csv", std::ios::out | std::ios::trunc);
 
-std::ofstream energyFileBS;
+
 void
 EnergyConsumptionUpdateBS (double totaloldEnergyConsumption, double totalnewEnergyConsumption)
 {
   if (!energyFileBS.is_open())
     {
-        energyFileBS.open("energy_consumption_0B_BS_OLDAPP.csv", std::ios::out | std::ios::app);
+        energyFileBS.open("energy_consumptionBS_0B_Ue6_100MB_3BS.csv", std::ios::out | std::ios::app);
         if (energyFileBS.is_open())
         {
             energyFileBS << "Time (s),Total Energy Consumption (J),Energy Difference (J)" << std::endl;
@@ -236,18 +287,20 @@ EnergyConsumptionUpdateBS (double totaloldEnergyConsumption, double totalnewEner
             return;
         }
     }
-  Time currentTime = Simulator::Now ();
-  std::cout << currentTime.GetSeconds () << "," << totalnewEnergyConsumption << "," << (totalnewEnergyConsumption-totaloldEnergyConsumption) <<std::endl;
-  energyFileBS << currentTime.GetSeconds() << ","
-               << totalnewEnergyConsumption << ","
-               << (totalnewEnergyConsumption - totaloldEnergyConsumption) << std::endl;
-}
+    Time currentTime = Simulator::Now ();
+    //std::cout << currentTime.GetSeconds () << "," << totalnewEnergyConsumption << "," << (totalnewEnergyConsumption-totaloldEnergyConsumption) <<std::endl;
+    energyFileBS << currentTime.GetSeconds() << ","
+                 << totalnewEnergyConsumption << ","
+                 << (totalnewEnergyConsumption - totaloldEnergyConsumption) << std::endl;
+    energyofBS = totalnewEnergyConsumption;
+  }
+
 void
 EnergyConsumptionUpdate (double totaloldEnergyConsumption, double totalnewEnergyConsumption)
 {
   if (!energyFile.is_open())
     {
-        energyFile.open("energy_consumption_0B_OLDAPP.csv", std::ios::out | std::ios::app);
+        energyFile.open("energy_consumption_0B_Ue6_100MB_3BS.csv", std::ios::out | std::ios::app);
         if (energyFile.is_open())
         {
             energyFile << "Time (s),Total Energy Consumption (J),Energy Difference (J)" << std::endl;
@@ -259,10 +312,11 @@ EnergyConsumptionUpdate (double totaloldEnergyConsumption, double totalnewEnergy
         }
     }
   Time currentTime = Simulator::Now ();
-  std::cout << currentTime.GetSeconds () << "," << totalnewEnergyConsumption << "," << (totalnewEnergyConsumption-totaloldEnergyConsumption) <<std::endl;
+  //std::cout << currentTime.GetSeconds () << "," << totalnewEnergyConsumption << "," << (totalnewEnergyConsumption-totaloldEnergyConsumption) <<std::endl;
   energyFile << currentTime.GetSeconds() << ","
                << totalnewEnergyConsumption << ","
                << (totalnewEnergyConsumption - totaloldEnergyConsumption) << std::endl;
+  energyofUe = totalnewEnergyConsumption;
 }
 
 std::pair<Box, std::list<Box> >
@@ -270,13 +324,13 @@ GenerateBuildingBounds (double xArea, double yArea, double maxBuildSize, std::li
 {
 
   Ptr<UniformRandomVariable> xMinBuilding = CreateObject<UniformRandomVariable> ();
-  xMinBuilding->SetAttribute ("Min",DoubleValue (30));
+  xMinBuilding->SetAttribute ("Min",DoubleValue (40));
   xMinBuilding->SetAttribute ("Max",DoubleValue (xArea));
 
   NS_LOG_UNCOND ("min " << 0 << " max " << xArea);
 
   Ptr<UniformRandomVariable> yMinBuilding = CreateObject<UniformRandomVariable> ();
-  yMinBuilding->SetAttribute ("Min",DoubleValue (0));
+  yMinBuilding->SetAttribute ("Min",DoubleValue (-20));//1.6
   yMinBuilding->SetAttribute ("Max",DoubleValue (yArea));
 
   NS_LOG_UNCOND ("min " << 0 << " max " << yArea);
@@ -323,7 +377,7 @@ static ns3::GlobalValue g_mmw3DistFromMainStreet ("mmw3Dist", "Distance from the
 static ns3::GlobalValue g_mmWaveDistance ("mmWaveDist", "Distance between MmWave eNB 1 and 2",
                                           ns3::UintegerValue (200), ns3::MakeUintegerChecker<uint32_t> ());
 static ns3::GlobalValue g_numBuildingsBetweenMmWaveEnb ("numBlocks", "Number of buildings between MmWave eNB 1 and 2",
-                                                        ns3::UintegerValue (2), ns3::MakeUintegerChecker<uint32_t> ());
+                                                        ns3::UintegerValue (10), ns3::MakeUintegerChecker<uint32_t> ());
 static ns3::GlobalValue g_interPckInterval ("interPckInterval", "Interarrival time of UDP packets (us)",
                                             ns3::UintegerValue (20), ns3::MakeUintegerChecker<uint32_t> ());
 static ns3::GlobalValue g_bufferSize ("bufferSize", "RLC tx buffer size (MB)",
@@ -337,9 +391,9 @@ static ns3::GlobalValue g_mobileUeSpeed ("mobileSpeed", "The speed of the UE (m/
 static ns3::GlobalValue g_rlcAmEnabled ("rlcAmEnabled", "If true, use RLC AM, else use RLC UM",
                                         ns3::BooleanValue (true), ns3::MakeBooleanChecker ());
 static ns3::GlobalValue g_maxXAxis ("maxXAxis", "The maximum X coordinate for the area in which to deploy the buildings",
-                                    ns3::DoubleValue (150), ns3::MakeDoubleChecker<double> ());
+                                    ns3::DoubleValue (90), ns3::MakeDoubleChecker<double> ());
 static ns3::GlobalValue g_maxYAxis ("maxYAxis", "The maximum Y coordinate for the area in which to deploy the buildings",
-                                    ns3::DoubleValue (40), ns3::MakeDoubleChecker<double> ());
+                                    ns3::DoubleValue (90), ns3::MakeDoubleChecker<double> ());
 static ns3::GlobalValue g_outPath ("outPath",
                                    "The path of output log files",
                                    ns3::StringValue ("./"), ns3::MakeStringChecker ());
@@ -351,13 +405,17 @@ static ns3::GlobalValue g_handoverMode ("handoverMode",
 static ns3::GlobalValue g_reportTablePeriodicity ("reportTablePeriodicity", "Periodicity of RTs",
                                                   ns3::UintegerValue (1600), ns3::MakeUintegerChecker<uint32_t> ());
 static ns3::GlobalValue g_outageThreshold ("outageTh", "Outage threshold",
-                                           ns3::DoubleValue (-5), ns3::MakeDoubleChecker<double> ());
+                                           ns3::DoubleValue (-200), ns3::MakeDoubleChecker<double> ());
 static ns3::GlobalValue g_lteUplink ("lteUplink", "If true, always use LTE for uplink signalling",
                                      ns3::BooleanValue (false), ns3::MakeBooleanChecker ());
+
+
 
 int
 main (int argc, char *argv[])
 {
+   LogComponentEnable("PacketSink", LOG_INFO);
+  // LogComponentEnable("lte-enb-rrc", LOG_INFO);
   bool harqEnabled = true;
   bool fixedTti = false;
 
@@ -371,7 +429,7 @@ main (int argc, char *argv[])
   BooleanValue booleanValue;
   StringValue stringValue;
   DoubleValue doubleValue;
-  //EnumValue enumValue;
+  // EnumValue enumValue;
   // GlobalValue::GetValueByName ("numBlocks", uintegerValue);
   // uint32_t numBlocks = uintegerValue.Get ();
   // GlobalValue::GetValueByName ("maxXAxis", doubleValue);
@@ -379,8 +437,8 @@ main (int argc, char *argv[])
   // GlobalValue::GetValueByName ("maxYAxis", doubleValue);
   // double maxYAxis = doubleValue.Get ();
 
-  double ueInitialPosition = 45;
-  //double ueFinalPosition = 110;
+  // double ueInitialPosition = 78;
+  //double ueFinalPosition = 78;
 
   // Variables for the RT
   int windowForTransient = 150; // number of samples for the vector to use in the filter
@@ -426,9 +484,9 @@ main (int argc, char *argv[])
   GlobalValue::GetValueByName ("mobileSpeed", doubleValue);
   double ueSpeed = doubleValue.Get ();
 
-  double transientDuration = double(vectorTransient) / 1000000;
+  //double transientDuration = double(vectorTransient) / 1000000;
   //double simTime = transientDuration + ((double)ueFinalPosition - (double)ueInitialPosition) / ueSpeed + 1;
-  double simTime =10; //insecs
+  double simTime = 50; //insecs
   NS_LOG_UNCOND ("rlcAmEnabled " << rlcAmEnabled << " bufferSize " << bufferSize << " interPacketInterval " <<
                  interPacketInterval << " x2Latency " << x2Latency << " mmeLatency " << mmeLatency << " mobileSpeed " << ueSpeed);
 
@@ -488,8 +546,8 @@ main (int argc, char *argv[])
   Config::SetDefault ("ns3::LteRlcUmLowLat::MaxTxBufferSize", UintegerValue (bufferSize * 1024 * 1024));
   Config::SetDefault ("ns3::LteRlcAm::StatusProhibitTimer", TimeValue (MilliSeconds (10.0)));
   Config::SetDefault ("ns3::LteRlcAm::MaxTxBufferSize", UintegerValue (bufferSize * 1024 * 1024));
-  Config::SetDefault ("ns3::MmWaveBearerStatsConnector::MmWaveSinrOutputFilename", StringValue("MmWaveSinrTime_0B_OLDAPP.txt"));
-  Config::SetDefault ("ns3::MmWaveBearerStatsConnector::UeHandoverStartOutputFilename", StringValue("Ue_handover_constpos.txt"));
+  Config::SetDefault ("ns3::MmWaveBearerStatsConnector::MmWaveSinrOutputFilename", StringValue("MmWaveSinrTime_0B_Ue6_100MB_3BS.txt"));
+  Config::SetDefault ("ns3::MmWaveBearerStatsConnector::UeHandoverStartOutputFilename", StringValue("Ue_handover_constpos0B_100MB_3BS_Ue6.txt"));
   // handover and RT related params
   switch (hoMode)
     {
@@ -503,7 +561,10 @@ main (int argc, char *argv[])
       Config::SetDefault ("ns3::LteEnbRrc::SecondaryCellHandoverMode", EnumValue (LteEnbRrc::DYNAMIC_TTT));
       break;
     }
-
+  // Config::SetDefault ("ns3::LteEnbRrc::MinDynTttValue", DoubleValue (250));
+  // Config::SetDefault ("ns3::LteEnbRrc::MaxDynTttValue", DoubleValue (1500));
+  // Config::SetDefault ("ns3::LteEnbRrc::MinDiffValue", DoubleValue (300));
+  // Config::SetDefault ("ns3::LteEnbRrc::MaxDiffValue", DoubleValue (200));
   Config::SetDefault ("ns3::LteEnbRrc::FixedTttValue", UintegerValue (150));
   Config::SetDefault ("ns3::LteEnbRrc::CrtPeriod", IntegerValue (ReportTablePeriodicity));
   Config::SetDefault ("ns3::LteEnbRrc::OutageThreshold", DoubleValue (outageTh));
@@ -561,10 +622,10 @@ main (int argc, char *argv[])
   p2ph.SetChannelAttribute ("Delay", TimeValue (Seconds (0.010)));
   NetDeviceContainer internetDevices = p2ph.Install (pgw, remoteHost);
   Ipv4AddressHelper ipv4h;
-  ipv4h.SetBase ("1.0.0.0", "255.0.0.0");
+  ipv4h.SetBase ("1.0.0.0", "255.0.0.0");         
   Ipv4InterfaceContainer internetIpIfaces = ipv4h.Assign (internetDevices);
   // interface 0 is localhost, 1 is the p2p device
-  Ipv4Address remoteHostAddr = internetIpIfaces.GetAddress (1);
+  //Ipv4Address remoteHostAddr = internetIpIfaces.GetAddress (1);
   Ipv4StaticRoutingHelper ipv4RoutingHelper;
   Ptr<Ipv4StaticRouting> remoteHostStaticRouting = ipv4RoutingHelper.GetStaticRouting (remoteHost->GetObject<Ipv4> ());
   remoteHostStaticRouting->AddNetworkRouteTo (Ipv4Address ("7.0.0.0"), Ipv4Mask ("255.0.0.0"), 1);
@@ -574,150 +635,155 @@ main (int argc, char *argv[])
   NodeContainer mmWaveEnbNodes;
   NodeContainer lteEnbNodes;
   NodeContainer allEnbNodes;
-  mmWaveEnbNodes.Create (1);
+  mmWaveEnbNodes.Create (3);
   lteEnbNodes.Create (1);
   ueNodes.Create (1);
   allEnbNodes.Add (lteEnbNodes);
   allEnbNodes.Add (mmWaveEnbNodes);
-
+  
+  
   // Positions
-  Vector mmw1Position = Vector (50, 100, 3);
-  //Vector mmw2Position = Vector (250, 70, 3);
+  Vector mmw1Position = Vector (-150, 100, 3);
+  Vector mmw2Position = Vector (50, 100, 3);
+  Vector mmw3Position = Vector (250, 100, 3);
 
-  std::vector<Ptr<Building> > buildingVector;
+  // std::vector<Ptr<Building> > buildingVector;
+  // double maxBuildingSize = 30;
 
-  //double maxBuildingSize = 20;
+  // for (uint32_t buildingIndex = 0; buildingIndex < numBlocks; buildingIndex++)
+  //   {
+  //     Ptr < Building > building;
+  //     building = Create<Building> ();
+      /* returns a vecotr where:
+      * position [0]: coordinates for x min
+      * position [1]: coordinates for x max
+      * position [2]: coordinates for y min
+      * position [3]: coordinates for y max
+      */
+  //     std::pair<Box, std::list<Box> > pairBuildings = GenerateBuildingBounds (maxXAxis, maxYAxis, maxBuildingSize, m_previousBlocks);
+  //     m_previousBlocks = std::get<1> (pairBuildings);
+  //     Box box = std::get<0> (pairBuildings);
+  //     Ptr<UniformRandomVariable> randomBuildingZ = CreateObject<UniformRandomVariable> ();
+  //     randomBuildingZ->SetAttribute ("Min",DoubleValue (-50));
+  //     randomBuildingZ->SetAttribute ("Max",DoubleValue (40));
+  //     double buildingHeight = randomBuildingZ->GetValue ();
 
- // for (uint32_t buildingIndex = 0; buildingIndex < numBlocks; buildingIndex++)
-   // {
-//     Ptr < Building > building1;
-//     building1 = Create<Building> ();
-//     /* returns a vecotr where:
-//     * position [0]: coordinates for x min
-//     * position [1]: coordinates for x max
-//     * position [2]: coordinates for y min
-//     * position [3]: coordinates for y max
-//     */
-//    // std::pair<Box, std::list<Box> > pairBuildings = GenerateBuildingBounds (maxXAxis, maxYAxis, maxBuildingSize, m_previousBlocks);
-//    // m_previousBlocks = std::get<1> (pairBuildings);
-//     //Box box = std::get<0> (pairBuildings);
-//     //Ptr<UniformRandomVariable> randomBuildingZ = CreateObject<UniformRandomVariable> ();
-//     // randomBuildingZ->SetAttribute ("Min",DoubleValue (1.6));
-//     // randomBuildingZ->SetAttribute ("Max",DoubleValue (40));
-//     //double buildingHeight = randomBuildingZ->GetValue ();
-
-//     building1->SetBoundaries (Box (70, 85,
-//                                   30,  52,
-//                                   0.0, 20));
-//     building1->SetNFloors (1);
-//     building1->SetNRoomsX (1);
-//     building1->SetNRoomsY (1) ;     
-//     buildingVector.push_back (building1);
-
-//     Ptr < Building > building2;
-//     building2 = Create<Building> ();
-
-//     building2->SetBoundaries (Box (42, 62,
-//                                   57,  70,
-//                                   0.0, 20)); 
-//     building2->SetNFloors (1);
-//     building2->SetNRoomsX (1);
-//     building2->SetNRoomsY (1) ;  
-//     buildingVector.push_back (building2);
-
-//     Ptr < Building > building3;
-//     building3 = Create<Building> ();
-
-//     building3->SetBoundaries (Box (49, 60,
-//                                   60,  70,
-//                                   0.0, 20)); 
-//     building3->SetNFloors (1);
-//     building3->SetNRoomsX (1);
-//     building3->SetNRoomsY (1) ;  
-//     buildingVector.push_back (building3);
-
-//     Ptr < Building > building4;
-//     building4 = Create<Building> ();
-
-//     building4->SetBoundaries (Box (75, 90,
-//                                   10,  32,
-//                                   0.0, 20)); 
-
-//     building4->SetNFloors (1);
-//     building4->SetNRoomsX (1);
-//     building4->SetNRoomsY (1) ;  
-//     buildingVector.push_back (building4);
-
-//     Ptr < Building > building5;
-//     building5 = Create<Building> ();
-
-//     building5->SetBoundaries (Box (75, 90,
-//                                   0,  10,
-//                                   0.0, 20)); 
-//     building5->SetNFloors (1);
-//     building5->SetNRoomsX (1);
-//     building5->SetNRoomsY (1) ;  
-//     buildingVector.push_back (building5);
-
-//     Ptr < Building > building6;
-//     building6 = Create<Building> ();
-
-//     building6->SetBoundaries (Box (75, 90,
-//                                   -20,  0,
-//                                   0.0, 20)); 
-//     building6->SetNFloors (1);
-//     building6->SetNRoomsX (1);
-//     building6->SetNRoomsY (1) ;  
-//     buildingVector.push_back (building6);
-
-//     Ptr < Building > building7;
-//     building7 = Create<Building> ();
-
-//     building7->SetBoundaries (Box (60, 90,
-//                                   -35,  -25,
-//                                   0.0, 20)); 
-//     building7->SetNFloors (1);
-//     building7->SetNRoomsX (1);
-//     building7->SetNRoomsY (1) ;  
-//     buildingVector.push_back (building7);
-
-//     Ptr < Building > building8;
-//     building8 = Create<Building> ();
-
-//     building8->SetBoundaries (Box (50, 85,
-//                                   -45,  -37,
-//                                   0.0, 20)); 
-//     building8->SetNFloors (1);
-//     building8->SetNRoomsX (1);
-//     building8->SetNRoomsY (1) ;  
-//     buildingVector.push_back (building8);
-
-//     Ptr < Building > building9;
-//     building9 = Create<Building> ();
-
-//     building9->SetBoundaries (Box (90,100,
-//                                   20,  30,
-//                                   0.0, 20)); 
-
-//     building9->SetNFloors (1);
-//     building9->SetNRoomsX (1);
-//     building9->SetNRoomsY (1) ;  
-//     buildingVector.push_back (building9);
-
-//     Ptr < Building > building10;
-//     building10 = Create<Building> ();
-
-//     building10->SetBoundaries (Box (20, 30,
-//                                   -10,  0,
-//                                   0.0, 20)); 
-
-//     building10->SetNFloors (1);
-//     building10->SetNRoomsX (1);
-//     building10->SetNRoomsY (1) ;  
-//     buildingVector.push_back (building10);
-// // // }
+  //     building->SetBoundaries (Box (box.xMin, box.xMax,
+  //                                   box.yMin,  box.yMax,
+  //                                   0.0, buildingHeight));
+  //     buildingVector.push_back (building);
+  //  }
 
 
+  // building1->SetBoundaries (Box (45, 60,
+  //                               60,  90,
+  //                               0.0, 10));
+  // building1->SetNFloors (1);
+  // building1->SetNRoomsX (1);
+  // building1->SetNRoomsY (1) ;     
+  // buildingVector.push_back (building1);
+
+  // Ptr < Building > building2;
+  // building2 = Create<Building> ();
+
+  // building2->SetBoundaries (Box (45, 60,
+  //                               30,  45,
+  //                               0.0, 20)); 
+  // building2->SetNFloors (1);
+  // building2->SetNRoomsX (1);
+  // building2->SetNRoomsY (1) ;  
+  // buildingVector.push_back (building2);
+
+  // Ptr < Building > building3;
+  // building3 = Create<Building> ();
+
+  // building3->SetBoundaries (Box (45, 60,
+  //                               5,  20,
+  //                               0.0, 20)); 
+  // building3->SetNFloors (1);
+  // building3->SetNRoomsX (1);
+  // building3->SetNRoomsY (1) ;  
+  // buildingVector.push_back (building3);
+
+  // Ptr < Building > building4;
+  // building4 = Create<Building> ();
+
+  // building4->SetBoundaries (Box (45, 60,
+  //                               -20,  -5,
+  //                               0.0, 20)); 
+
+  // building4->SetNFloors (1);
+  // building4->SetNRoomsX (1);
+  // building4->SetNRoomsY (1) ;  
+  // buildingVector.push_back (building4);
+
+  // Ptr < Building > building5;
+  // building5 = Create<Building> ();
+
+  // building5->SetBoundaries (Box (45, 60,
+  //                               -45, -30,
+  //                               0.0, 20)); 
+  // building5->SetNFloors (1);
+  // building5->SetNRoomsX (1);
+  // building5->SetNRoomsY (1) ;  
+  // buildingVector.push_back (building5);
+
+  // Ptr < Building > building6;
+  // building6 = Create<Building> ();
+
+  // building6->SetBoundaries (Box (45, 60,
+  //                               -70, -55,
+  //                               0.0, 20)); 
+  // building6->SetNFloors (1);
+  // building6->SetNRoomsX (1);
+  // building6->SetNRoomsY (1) ;  
+  // buildingVector.push_back (building6);
+
+  // Ptr < Building > building7;
+  // building7 = Create<Building> ();
+
+  // building7->SetBoundaries (Box (70, 90,
+  //                               50,  85,
+  //                               0.0, 20)); 
+  // building7->SetNFloors (1);
+  // building7->SetNRoomsX (1);
+  // building7->SetNRoomsY (1) ;  
+  // buildingVector.push_back (building7);
+
+  // Ptr < Building > building8;
+  // building8 = Create<Building> ();
+
+  // building8->SetBoundaries (Box (70, 90,
+  //                               20,  40,
+  //                               0.0, 20)); 
+  // building8->SetNFloors (1);
+  // building8->SetNRoomsX (1);
+  // building8->SetNRoomsY (1) ;  
+  // buildingVector.push_back (building8);
+
+  // Ptr < Building > building9;
+  // building9 = Create<Building> ();
+
+  // building9->SetBoundaries (Box (20,40,
+  //                               60,  90,
+  //                               0.0, 20)); 
+
+  // building9->SetNFloors (1);
+  // building9->SetNRoomsX (1);
+  // building9->SetNRoomsY (1) ;  
+  // buildingVector.push_back (building9);
+
+  // Ptr < Building > building10;
+  // building10 = Create<Building> ();
+
+  // building10->SetBoundaries (Box (20, 40,
+  //                               30, 50,
+  //                               0.0, 20)); 
+
+  // building10->SetNFloors (1);
+  // building10->SetNRoomsX (1);
+  // building10->SetNRoomsY (1) ;  
+  // buildingVector.push_back (building10);
 
 
   // Install Mobility Model
@@ -725,7 +791,8 @@ main (int argc, char *argv[])
   //enbPositionAlloc->Add (Vector ((double)mmWaveDist/2 + streetWidth, mmw1Dist + 2*streetWidth, mmWaveZ));
   enbPositionAlloc->Add (mmw1Position); // LTE BS, out of area where buildings are deployed
   enbPositionAlloc->Add (mmw1Position);
-  //enbPositionAlloc->Add (mmw2Position);
+  enbPositionAlloc->Add (mmw2Position);
+  enbPositionAlloc->Add (mmw3Position);
   MobilityHelper enbmobility;
   enbmobility.SetMobilityModel ("ns3::ConstantPositionMobilityModel");
   enbmobility.SetPositionAllocator (enbPositionAlloc);
@@ -735,14 +802,14 @@ main (int argc, char *argv[])
   MobilityHelper uemobility;
   Ptr<ListPositionAllocator> uePositionAlloc = CreateObject<ListPositionAllocator> ();
   //uePositionAlloc->Add (Vector (ueInitialPosition, -5, 0));
-  uePositionAlloc->Add (Vector (45, 60, 1.6));
+  uePositionAlloc->Add (Vector (100, -75, 1.6));
   uemobility.SetMobilityModel ("ns3::ConstantPositionMobilityModel");
   uemobility.SetPositionAllocator (uePositionAlloc);
   uemobility.Install (ueNodes);
   BuildingsHelper::Install (ueNodes);
-
+  
   //ueNodes.Get (0)->GetObject<MobilityModel> ()->SetPosition (Vector (ueInitialPosition, -5, 0));
-  ueNodes.Get (0)->GetObject<MobilityModel> ()->SetPosition (Vector (ueInitialPosition, -5, 1.6));
+  // ueNodes.Get (0)->GetObject<MobilityModel> ()->SetPosition (Vector (ueInitialPosition, -5, 1.6));
   //ueNodes.Get (0)->GetObject<ConstantVelocityMobilityModel> ()->SetVelocity (Vector (0, 0, 0));
 
   // Install mmWave, lte, mc Devices to the nodes
@@ -784,80 +851,114 @@ main (int argc, char *argv[])
   DeviceEnergyModelContainer bsEnergyModel = enbEnergyHelper.Install (mmWaveEnbDevs, Enb_sources);
   deviceEnergyModel.Get(0)->TraceConnectWithoutContext ("TotalEnergyConsumption", MakeCallback (&EnergyConsumptionUpdate));
   bsEnergyModel.Get(0)->TraceConnectWithoutContext ("TotalEnergyConsumption", MakeCallback (&EnergyConsumptionUpdateBS));
-  // Store Energy consumption value
-  std::ofstream energyFile;
-  std::string energyFileName = "energyfile.csv";
-  energyFile.open (energyFileName, std::ios_base::out | std::ios_base::trunc);
-  energyFile << "Time,EnergyConsumption,StateEnergy" << std::endl;
+ 
 
-  // Install and start applications on UEs and remote host
-  uint16_t dlPort = 1234;
-  uint16_t ulPort = 2000;
-  ApplicationContainer clientApps;
-  ApplicationContainer serverApps;
-  bool dl = 1;
-  bool ul = 0;
+uint16_t servPort = 50000;
 
-  for (uint32_t u = 0; u < ueNodes.GetN (); ++u)
+// Create a packet sink to receive these packets on n2...
+PacketSinkHelper sink ("ns3::TcpSocketFactory",
+                       InetSocketAddress (Ipv4Address::GetAny (), servPort));
+//sink.SetAttribute ("PacketWindowSize", UintegerValue (256));
+ApplicationContainer apps = sink.Install (ueNodes.Get (0));
+apps.Start (Seconds (0.0));
+apps.Stop (Seconds (simTime));
+
+
+// Create a source to send packets from n0.  Instead of a full Application
+// and the helper APIs you might see in other example files, this example
+// will use sockets directly and register some socket callbacks as a sending
+// "Application".
+
+// Create and bind the socket...
+Ptr<Socket> localSocket =
+  Socket::CreateSocket (remoteHostContainer.Get (0), TcpSocketFactory::GetTypeId ());
+localSocket->Bind ();
+
+// Trace changes to the congestion window
+// Config::ConnectWithoutContext ("/NodeList/0/$ns3::TcpL4Protocol/SocketList/0/CongestionWindow", MakeCallback (&CwndTracer));
+
+// ...and schedule the sending "Application"; This is similar to what an 
+// ns3::Application subclass would do internally.
+Simulator::ScheduleNow (&StartFlow, localSocket,
+                        ueIpIface.GetAddress (0), servPort);
+// Simulator::Schedule(Seconds(8.0), &Socket::Close, localSocket); // Stop sending at 8s
+
+// Simulator::Schedule(Seconds(8.0), []() {
+//    std::cout << "[INFO] Entering idle state at time: 8.0 s" << std::endl;
+// });
+// One can toggle the comment for the following line on or off to see the
+// effects of finite send buffer modelling.  One can also change the size of
+// said buffer.
+
+//localSocket->SetAttribute("SndBufSize", UintegerValue(4096));
+
+//Ask for ASCII and pcap traces of network traffic
+//AsciiTraceHelper ascii;
+// p2ph.EnableAsciiAll (ascii.CreateFileStream ("tcp-large-transfer.tr"));
+// p2ph.EnablePcapAll ("tcp-large-transfer");
+mmwaveHelper->EnableTraces ();
+Ptr<Application> sinkApp = apps.Get(0);
+Ptr<PacketSink> sinkChecker = DynamicCast<PacketSink>(sinkApp);
+sinkChecker->TraceConnectWithoutContext("TotalBytesReceived",MakeCallback(&ReceivedPacket));
+// Finally, set up the simulator to run.  The 1000 second hard limit is a
+// failsafe in case some change above causes the simulation to never end
+Simulator::Stop (Seconds (simTime));
+Simulator::Run ();
+Simulator::Destroy ();
+}
+
+
+//-----------------------------------------------------------------------------
+//-----------------------------------------------------------------------------
+//-----------------------------------------------------------------------------
+//begin implementation of sending "Application"
+void StartFlow (Ptr<Socket> localSocket,
+              Ipv4Address servAddress,
+              uint16_t servPort)
+{
+NS_LOG_LOGIC ("Starting flow at time " <<  Simulator::Now ().GetSeconds ());
+localSocket->Connect (InetSocketAddress (servAddress, servPort)); //connect
+
+// tell the tcp implementation to call WriteUntilBufferFull again
+// if we blocked and new tx buffer space becomes available
+localSocket->SetSendCallback (MakeCallback (&WriteUntilBufferFull));
+WriteUntilBufferFull (localSocket, localSocket->GetTxAvailable ());
+}
+
+void WriteUntilBufferFull (Ptr<Socket> localSocket, uint32_t txSpace)
+{
+while (currentTxBytes < totalTxBytes && localSocket->GetTxAvailable () > 0) 
+  {
+    if (!packettracefile.is_open())
     {
-      if (dl)
+        packettracefile.open("Packet_Trace_0B_Ue6_100MB_3BS.csv", std::ios::out | std::ios::app);
+        if (packettracefile.is_open())
         {
-          UdpServerHelper dlPacketSinkHelper (dlPort);
-          dlPacketSinkHelper.SetAttribute ("PacketWindowSize", UintegerValue (256));
-          serverApps.Add (dlPacketSinkHelper.Install (ueNodes.Get (u)));
-
-          // Simulator::Schedule(MilliSeconds(20), &PrintLostUdpPackets, DynamicCast<UdpServer>(serverApps.Get(serverApps.GetN()-1)), lostFilename);
-
-          UdpClientHelper dlClient (ueIpIface.GetAddress (u), dlPort);
-          dlClient.SetAttribute ("Interval", TimeValue (MicroSeconds (interPacketInterval)));
-          dlClient.SetAttribute ("MaxPackets", UintegerValue (0xFFFFFFFF));
-          clientApps.Add (dlClient.Install (remoteHost));
-
+          packettracefile << "Time (s),currentTxBytes, left, dataOffset, toWrite, amountSent" << std::endl;
         }
-      if (ul)
+        else
         {
-          ++ulPort;
-          PacketSinkHelper ulPacketSinkHelper ("ns3::UdpSocketFactory", InetSocketAddress (Ipv4Address::GetAny (), ulPort));
-          ulPacketSinkHelper.SetAttribute ("PacketWindowSize", UintegerValue (256));
-          serverApps.Add (ulPacketSinkHelper.Install (remoteHost));
-          UdpClientHelper ulClient (remoteHostAddr, ulPort);
-          ulClient.SetAttribute ("Interval", TimeValue (MicroSeconds (interPacketInterval)));
-          ulClient.SetAttribute ("MaxPackets", UintegerValue (0xFFFFFFFF));
-          clientApps.Add (ulClient.Install (ueNodes.Get (u)));
+            std::cerr << "Error opening file for writing!" << std::endl;
+            return;
         }
     }
-
-  // Start applications
-  NS_LOG_UNCOND ("transientDuration " << transientDuration << " simTime " << simTime);
-  serverApps.Start (Seconds (transientDuration));
-  clientApps.Start (Seconds (transientDuration));
-  clientApps.Stop (Seconds (simTime - 1));
-
- // Simulator::Schedule (Seconds (transientDuration), &ChangeSpeed, ueNodes.Get (0), Vector (ueSpeed, 0, 0)); // start UE movement after Seconds(0.5)
-  //Simulator::Schedule (Seconds (simTime - 1), &ChangeSpeed, ueNodes.Get (0), Vector (0, 0, 0)); // start UE movement after Seconds(0.5)
-
-  double numPrints = 0;
-  for (int i = 0; i < numPrints; i++)
-    {
-      Simulator::Schedule (Seconds (i * simTime / numPrints), &PrintPosition, ueNodes.Get (0));
-    }
-
-  mmwaveHelper->EnableTraces ();
-
-  // set to true if you want to print the map of buildings, ues and enbs
-  bool print = false;
-  if (print)
-    {
-      PrintGnuplottableBuildingListToFile ("buildings.txt");
-      PrintGnuplottableUeListToFile ("ues.txt");
-      PrintGnuplottableEnbListToFile ("enbs.txt");
-    }
-  else
-    {
-      Simulator::Stop (Seconds (simTime));
-      Simulator::Run ();
-    }
-
-  Simulator::Destroy ();
-  return 0;
+    uint32_t left = totalTxBytes - currentTxBytes;
+    uint32_t dataOffset = currentTxBytes % writeSize;
+    uint32_t toWrite = writeSize - dataOffset;
+    toWrite = std::min (toWrite, left);
+    toWrite = std::min (toWrite, localSocket->GetTxAvailable ());
+    int amountSent = localSocket->Send (&data[dataOffset], toWrite, 0);
+    packettracefile << Simulator:: Now().GetSeconds()<< ","<< currentTxBytes<< "," << left<< "," << dataOffset<<","<< toWrite<< ","<< amountSent<< std::endl;
+    
+    if(amountSent < 0)
+      {
+        // we will be called again when new tx space becomes available.
+        return;
+      }
+    currentTxBytes += amountSent;
+  }
+if (currentTxBytes >= totalTxBytes)
+  {
+    localSocket->Close (); std::cout <<"Application Ending "<< Simulator ::Now().GetSeconds()<< std::endl;
+}
 }

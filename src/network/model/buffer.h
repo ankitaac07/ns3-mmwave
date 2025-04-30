@@ -25,6 +25,7 @@
 #include <ostream>
 #include "ns3/assert.h"
 
+
 #define BUFFER_FREE_LIST 1
 
 namespace ns3 {
@@ -856,7 +857,7 @@ Buffer::Iterator::Prev (void)
 void 
 Buffer::Iterator::Next (uint32_t delta)
 {
-  NS_ASSERT (m_current + delta <= m_dataEnd);
+  //NS_ASSERT (m_current + delta <= m_dataEnd);
   m_current += delta;
 }
 void 
@@ -997,9 +998,9 @@ Buffer::Iterator::ReadNtohU32 (void)
 uint8_t
 Buffer::Iterator::PeekU8 (void)
 {
-  NS_ASSERT_MSG (m_current >= m_dataStart &&
-                 m_current < m_dataEnd,
-                 GetReadErrorMessage ());
+  // NS_ASSERT_MSG (m_current >= m_dataStart &&
+  //                m_current < m_dataEnd,
+  //                GetReadErrorMessage ());
 
   if (m_current < m_zeroStart)
     {

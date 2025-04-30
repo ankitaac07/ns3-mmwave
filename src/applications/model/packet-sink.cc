@@ -68,6 +68,10 @@ PacketSink::GetTypeId (void)
     .AddTraceSource ("RxWithAddresses", "A packet has been received",
                      MakeTraceSourceAccessor (&PacketSink::m_rxTraceWithAddresses),
                      "ns3::Packet::TwoAddressTracedCallback")
+    .AddTraceSource("TotalBytesReceived",
+                    "Total bytes received",
+                    MakeTraceSourceAccessor(&PacketSink::m_totalRxReceived),
+                    "ns3::TracedValueCallback::Double")
     .AddTraceSource ("RxWithSeqTsSize",
                      "A packet with SeqTsSize header has been received",
                      MakeTraceSourceAccessor (&PacketSink::m_rxTraceWithSeqTsSize),
@@ -81,6 +85,7 @@ PacketSink::PacketSink ()
   NS_LOG_FUNCTION (this);
   m_socket = 0;
   m_totalRx = 0;
+  m_totalRxReceived = 0;
 }
 
 PacketSink::~PacketSink()
@@ -186,6 +191,7 @@ void PacketSink::HandleRead (Ptr<Socket> socket)
           break;
         }
       m_totalRx += packet->GetSize ();
+      m_totalRxReceived = m_totalRx;
       if (InetSocketAddress::IsMatchingType (from))
         {
           NS_LOG_INFO ("At time " << Simulator::Now ().As (Time::S)

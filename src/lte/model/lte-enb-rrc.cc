@@ -2874,7 +2874,7 @@ LteEnbRrc::GetTypeId (void)
                    MakeTimeChecker ())
      .AddAttribute ("OutageThreshold",
                     "SNR threshold for outage events [dB]",
-                    DoubleValue (-5.0),
+                    DoubleValue (-200.0),
                     MakeDoubleAccessor (&LteEnbRrc::m_outageThreshold),
                     MakeDoubleChecker<long double> (-10000.0, 10.0))
 
@@ -2944,7 +2944,7 @@ LteEnbRrc::GetTypeId (void)
             MakeBooleanChecker ())
    .AddAttribute ("HoSinrDifference",
             "The value for which an handover between MmWave eNB is triggered",
-            DoubleValue (3),
+            DoubleValue (300),
             MakeDoubleAccessor (&LteEnbRrc::m_sinrThresholdDifference),
             MakeDoubleChecker<double> ())
    .AddAttribute ("SecondaryCellHandoverMode",
@@ -2976,7 +2976,7 @@ LteEnbRrc::GetTypeId (void)
        MakeDoubleChecker<double>()) // TODO set the proper value
    .AddAttribute ("MaxDiffValue",
        "The maximum value of the difference in case of dynamic TTT handover [dB]",
-       DoubleValue(20),
+       DoubleValue(2),
        MakeDoubleAccessor(&LteEnbRrc::m_maxDiffTttValue),
        MakeDoubleChecker<double>()) // TODO set the proper value
    .AddAttribute ("CrtPeriod",
@@ -3830,8 +3830,11 @@ LteEnbRrc::TttBasedHandover(std::map<uint64_t, CellSinrMap>::iterator imsiIter, 
         if(currentSinrDb < m_outageThreshold) // we need to handover right now!
         {
           handoverEvent->second.scheduledHandoverEvent.Cancel();
-          handoverNeeded = true;
-          NS_LOG_INFO("------ Handover was already scheduled, but the current cell is in outage, thus HO to " << maxSinrCellId);
+          handoverNeeded = false;
+          // NS_LOG_INFO("------ Handover was already scheduled, but the current cell is in outage, thus HO to " << maxSinrCellId);
+          // std::cout <<"------ Handover triggered: HO to Cell " << maxSinrCellId
+          //   << " | Current SINR: " << currentSinrDb
+          //   << " | Outage Threshold: " << m_outageThreshold << " | maxsinrdB: " << maxSinrDb << std::endl;
         }
         else
         {
@@ -3843,8 +3846,12 @@ LteEnbRrc::TttBasedHandover(std::map<uint64_t, CellSinrMap>::iterator imsiIter, 
           if(Simulator::Now().GetMilliSeconds() + newTtt < (double)handoverHappensAtTime/1e6)
           {
             handoverEvent->second.scheduledHandoverEvent.Cancel();
-            NS_LOG_INFO("------ Handover remains scheduled for " << maxSinrCellId << " but a new shorter TTT is computed");
-            handoverNeeded = true;
+            
+            // std::cout <<"------ Handover triggered: HO to Cell " << maxSinrCellId
+            // << " | Current SINR: " << currentSinrDb
+            // << " | Outage Threshold: " << m_outageThreshold << " | maxsinrdB: " << maxSinrDb<< std::endl;
+            // std::cout<<"------ Handover remains scheduled for " << maxSinrCellId << " but a new shorter TTT is computed"<<std::endl;
+            handoverNeeded = false;
           }
         }
       }
@@ -3861,7 +3868,10 @@ LteEnbRrc::TttBasedHandover(std::map<uint64_t, CellSinrMap>::iterator imsiIter, 
           // we need to re-compute the TTT and schedule a new event
           if(maxSinrCellId != m_lastMmWaveCell[imsi])
           {
-            handoverNeeded = true;
+            handoverNeeded = false;
+            // std::cout <<"------ Handover triggered: HO to Cell " << maxSinrCellId
+            // << " | Current SINR: " << currentSinrDb
+            // << " | Outage Threshold: " << m_outageThreshold << " | maxsinrdB: " << maxSinrDb<< std::endl;
           }
           else
           {
@@ -3891,8 +3901,11 @@ LteEnbRrc::TttBasedHandover(std::map<uint64_t, CellSinrMap>::iterator imsiIter, 
       // check if the maxSinrCellId is different from the current cell
       if(maxSinrCellId != m_lastMmWaveCell[imsi])
       {
-        NS_LOG_INFO("----- Handover needed from cell " << m_lastMmWaveCell[imsi] << " to " << maxSinrCellId);
-        handoverNeeded = true;
+        // std::cout <<"------ Handover triggered: HO to Cell " << maxSinrCellId
+        //     << " | Current SINR: " << currentSinrDb
+        //     << " | Outage Threshold: " << m_outageThreshold << " | maxsinrdB: " << maxSinrDb << std::endl;
+        // std::cout <<"----- Handover needed from cell " << m_lastMmWaveCell[imsi] << " to " << maxSinrCellId<<std::endl;
+        handoverNeeded = false;
       }
     }
   }
