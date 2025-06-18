@@ -68,8 +68,12 @@ void StartFlow (Ptr<Socket>, Ipv4Address, uint16_t);
 void WriteUntilBufferFull (Ptr<Socket>, uint32_t);
 double energyofBS;
 double energyofUe;
-double totalPackets;
+uint32_t psize = 1400;
+uint32_t ptransfer=1000000;
+uint32_t totalPackets = psize*ptransfer;
+
 double energy_per_byte;
+
 // static void 
 // CwndTracer (uint32_t oldval, uint32_t newval)
 // {
@@ -243,15 +247,17 @@ MyApp::ScheduleTx (void)
 
 
 
-std::ofstream packetSinkFile("packetsink_10B_Ue3_video_3BS_it1.csv", std::ios::out | std::ios::trunc);
+std::ofstream packetSinkFile("packetsink_20B_Ue1_video_3BS_it1.csv", std::ios::out | std::ios::trunc);
+double previousTime = 0;
+
 void ReceivedPacket(double totaloldbytesReceived, double totalnewbytesReceived)
 {
   if (!packetSinkFile.is_open())
     {
-        packetSinkFile.open("packetsink_10B_Ue3_video_3BS_it1.csv", std::ios::out | std::ios::app);
+        packetSinkFile.open("packetsink_20B_Ue1_video_3BS_it1.csv", std::ios::out | std::ios::app);
         if (packetSinkFile.is_open())
         {
-            packetSinkFile << "Time (s),Total Packets (bytes), Current Packet (bytes), Energy/Bytes" << std::endl;
+            packetSinkFile << "Time (s),Total Packets (bytes), Current Packet (bytes),EnergyBS,EnergyUe, EnergyBS/byte/second, EnergyUe/byte/second" << std::endl;
         }
         else
         {
@@ -259,14 +265,24 @@ void ReceivedPacket(double totaloldbytesReceived, double totalnewbytesReceived)
             return;
         }
     }
-    Time currentTime = Simulator::Now ();
-    energy_per_byte = energyofBS/totalPackets;
-    //std::cout << currentTime.GetSeconds () << "," << totalnewEnergyConsumption << "," << (totalnewEnergyConsumption-totaloldEnergyConsumption) <<std::endl;
-    packetSinkFile << currentTime.GetSeconds() << ","
-                 << totalnewbytesReceived << ","
-                 << (totalnewbytesReceived - totaloldbytesReceived) <<","<<energy_per_byte << std::endl;
-  totalPackets = totalnewbytesReceived;
-  
+    double currentTime = Simulator::Now ().GetSeconds();
+    if (currentTime -previousTime >= 1 || totalnewbytesReceived == totalPackets)
+    {
+      previousTime = currentTime;
+      energy_per_byte = energyofBS/totalnewbytesReceived;
+      double energy_per_byte_ue = energyofUe/totalnewbytesReceived;
+      double energy_per_byte_per_second = energy_per_byte/previousTime;
+      double energy_per_byte_per_second_ue = energy_per_byte_ue/previousTime;
+     
+      packetSinkFile << currentTime << ","
+                      << totalnewbytesReceived << ","
+                     << (totalnewbytesReceived - totaloldbytesReceived)
+                     <<","<< energyofBS<<","<< energyofUe<<","<<energy_per_byte_per_second<<","<<energy_per_byte_per_second_ue << std::endl;
+
+    }
+
+    //std::cout << "TotalNewwbytesRX"<< totalnewbytesReceived <<std::endl;
+ 
 }
 
 void
@@ -434,56 +450,56 @@ OverlapWithAnyPrevious (Box box, std::list<Box> m_previousBlocks)
   return false;
 }
 
-std::ofstream energyFile;
-std::ofstream packettracefile("Packet_Trace_10B_Ue3_video_3BS_it1.csv", std::ios::out | std::ios::trunc);
-std::ofstream energyFileBS("energy_consumptionBS_10B_Ue3_video_3BS_it1.csv", std::ios::out | std::ios::trunc);
+//std::ofstream energyFile;
+std::ofstream packettracefile("Packet_Trace_20B_Ue1_video_3BS_it1.csv", std::ios::out | std::ios::trunc);
+//std::ofstream energyFileBS("energy_consumptionBS_20B_Ue4_video_3BS_it1.csv", std::ios::out | std::ios::trunc);
 
 
 void
 EnergyConsumptionUpdateBS (double totaloldEnergyConsumption, double totalnewEnergyConsumption)
 {
-  if (!energyFileBS.is_open())
-    {
-        energyFileBS.open("energy_consumptionBS_10B_Ue3_video_3BS_it1.csv", std::ios::out | std::ios::app);
-        if (energyFileBS.is_open())
-        {
-            energyFileBS << "Time (s),Total Energy Consumption (J),Energy Difference (J)" << std::endl;
-        }
-        else
-        {
-            std::cerr << "Error opening file for writing!" << std::endl;
-            return;
-        }
-    }
-    Time currentTime = Simulator::Now ();
-    //std::cout << currentTime.GetSeconds () << "," << totalnewEnergyConsumption << "," << (totalnewEnergyConsumption-totaloldEnergyConsumption) <<std::endl;
-    energyFileBS << currentTime.GetSeconds() << ","
-                 << totalnewEnergyConsumption << ","
-                 << (totalnewEnergyConsumption - totaloldEnergyConsumption) << std::endl;
+  // if (!energyFileBS.is_open())
+  //   {
+  //       //energyFileBS.open("energy_consumptionBS_20B_Ue4_video_3BS_it1.csv", std::ios::out | std::ios::app);
+  //       if (energyFileBS.is_open())
+  //       {
+  //           //energyFileBS << "Time (s),Total Energy Consumption (J),Energy Difference (J)" << std::endl;
+  //       }
+  //       else
+  //       {
+  //           //std::cerr << "Error opening file for writing!" << std::endl;
+  //           return;
+  //       }
+  //   }
+  //   Time currentTime = Simulator::Now ();
+  //   //std::cout << currentTime.GetSeconds () << "," << totalnewEnergyConsumption << "," << (totalnewEnergyConsumption-totaloldEnergyConsumption) <<std::endl;
+  //   energyFileBS << currentTime.GetSeconds() << ","
+  //                << totalnewEnergyConsumption << ","
+  //                << (totalnewEnergyConsumption - totaloldEnergyConsumption) << std::endl;
     energyofBS = totalnewEnergyConsumption;
   }
 
 void
 EnergyConsumptionUpdate (double totaloldEnergyConsumption, double totalnewEnergyConsumption)
 {
-  if (!energyFile.is_open())
-    {
-        energyFile.open("energy_consumption_10B_Ue3_video_3BS_it1.csv", std::ios::out | std::ios::app);
-        if (energyFile.is_open())
-        {
-            energyFile << "Time (s),Total Energy Consumption (J),Energy Difference (J)" << std::endl;
-        }
-        else
-        {
-            std::cerr << "Error opening file for writing!" << std::endl;
-            return;
-        }
-    }
-  Time currentTime = Simulator::Now ();
-  //std::cout << currentTime.GetSeconds () << "," << totalnewEnergyConsumption << "," << (totalnewEnergyConsumption-totaloldEnergyConsumption) <<std::endl;
-  energyFile << currentTime.GetSeconds() << ","
-               << totalnewEnergyConsumption << ","
-               << (totalnewEnergyConsumption - totaloldEnergyConsumption) << std::endl;
+  // if (!energyFile.is_open())
+  //   {
+  //       //energyFile.open("energy_consumption_20B_Ue4_video_3BS_it1.csv", std::ios::out | std::ios::app);
+  //       if (energyFile.is_open())
+  //       {
+  //           //energyFile << "Time (s),Total Energy Consumption (J),Energy Difference (J)" << std::endl;
+  //       }
+  //       else
+  //       {
+  //           std::cerr << "Error opening file for writing!" << std::endl;
+  //           return;
+  //       }
+  //   }
+  // Time currentTime = Simulator::Now ();
+  // //std::cout << currentTime.GetSeconds () << "," << totalnewEnergyConsumption << "," << (totalnewEnergyConsumption-totaloldEnergyConsumption) <<std::endl;
+  // energyFile << currentTime.GetSeconds() << ","
+  //              << totalnewEnergyConsumption << ","
+  //              << (totalnewEnergyConsumption - totaloldEnergyConsumption) << std::endl;
   energyofUe = totalnewEnergyConsumption;
 }
 
@@ -545,7 +561,7 @@ static ns3::GlobalValue g_mmw3DistFromMainStreet ("mmw3Dist", "Distance from the
 static ns3::GlobalValue g_mmWaveDistance ("mmWaveDist", "Distance between MmWave eNB 1 and 2",
                                           ns3::UintegerValue (200), ns3::MakeUintegerChecker<uint32_t> ());
 static ns3::GlobalValue g_numBuildingsBetweenMmWaveEnb ("numBlocks", "Number of buildings between MmWave eNB 1 and 2",
-                                                        ns3::UintegerValue (10), ns3::MakeUintegerChecker<uint32_t> ());
+                                                        ns3::UintegerValue (20), ns3::MakeUintegerChecker<uint32_t> ());
 static ns3::GlobalValue g_interPckInterval ("interPckInterval", "Interarrival time of UDP packets (us)",
                                             ns3::UintegerValue (20), ns3::MakeUintegerChecker<uint32_t> ());
 static ns3::GlobalValue g_bufferSize ("bufferSize", "RLC tx buffer size (MB)",
@@ -657,7 +673,7 @@ main (int argc, char *argv[])
 
   //double transientDuration = double(vectorTransient) / 1000000;
   //double simTime = transientDuration + ((double)ueFinalPosition - (double)ueInitialPosition) / ueSpeed + 1;
-  double simTime = 10; //insecs
+  double simTime = 50; //insecs
   NS_LOG_UNCOND ("rlcAmEnabled " << rlcAmEnabled << " bufferSize " << bufferSize << " interPacketInterval " <<
                  interPacketInterval << " x2Latency " << x2Latency << " mmeLatency " << mmeLatency << " mobileSpeed " << ueSpeed);
 
@@ -717,8 +733,8 @@ main (int argc, char *argv[])
   Config::SetDefault ("ns3::LteRlcUmLowLat::MaxTxBufferSize", UintegerValue (bufferSize * 1024 * 1024));
   Config::SetDefault ("ns3::LteRlcAm::StatusProhibitTimer", TimeValue (MilliSeconds (10.0)));
   Config::SetDefault ("ns3::LteRlcAm::MaxTxBufferSize", UintegerValue (bufferSize * 1024 * 1024));
-  Config::SetDefault ("ns3::MmWaveBearerStatsConnector::MmWaveSinrOutputFilename", StringValue("MmWaveSinrTime_10B_Ue3_video_3BS_it1.txt"));
-  Config::SetDefault ("ns3::MmWaveBearerStatsConnector::UeHandoverStartOutputFilename", StringValue("Ue_handover_constpos10B_video_3BS_Ue3_it1.txt"));
+  Config::SetDefault ("ns3::MmWaveBearerStatsConnector::MmWaveSinrOutputFilename", StringValue("MmWaveSinrTime_20B_Ue1_video_3BS_it1.txt"));
+  Config::SetDefault ("ns3::MmWaveBearerStatsConnector::UeHandoverStartOutputFilename", StringValue("Ue_handover_constpos20B_video_3BS_Ue1_it1.txt"));
   // handover and RT related params
   switch (hoMode)
     {
@@ -973,7 +989,7 @@ main (int argc, char *argv[])
   MobilityHelper uemobility;
   Ptr<ListPositionAllocator> uePositionAlloc = CreateObject<ListPositionAllocator> ();
   //uePositionAlloc->Add (Vector (ueInitialPosition, -5, 0));
-  uePositionAlloc->Add (Vector (70, 0, 1.6));
+  uePositionAlloc->Add (Vector (50, 50, 1.6));
   //uePositionAlloc->Add (Vector (120, 25, 1.6));
   uemobility.SetMobilityModel ("ns3::ConstantPositionMobilityModel");
   uemobility.SetPositionAllocator (uePositionAlloc);
@@ -1038,11 +1054,11 @@ main (int argc, char *argv[])
 
   Ptr<Socket> ns3UdpSocket = Socket::CreateSocket (remoteHostContainer.Get (0), UdpSocketFactory::GetTypeId ());
   Ptr<MyApp> app = CreateObject<MyApp> ();
-  app->Setup (ns3UdpSocket, sinkAddress, 1400, 10000, DataRate ("500Mb/s"));
+  app->Setup (ns3UdpSocket, sinkAddress, psize, ptransfer, DataRate ("500Mb/s"));
 
   remoteHostContainer.Get (0)->AddApplication (app);
 
-  app->SetStartTime (Seconds (0.1));
+  app->SetStartTime (Seconds (1));
   app->SetStopTime (Seconds (simTime));
   
 
@@ -1051,9 +1067,9 @@ main (int argc, char *argv[])
 
 
 mmwaveHelper->EnableTraces ();
-// Ptr<Application> sinkApp = apps.Get(0);
-// Ptr<PacketSink> sinkChecker = DynamicCast<PacketSink>(sinkApp);
-// sinkChecker->TraceConnectWithoutContext("TotalBytesReceived",MakeCallback(&ReceivedPacket));
+Ptr<Application> sinkApp = sinkApps.Get(0);
+Ptr<PacketSink> sinkChecker = DynamicCast<PacketSink>(sinkApp);
+sinkChecker->TraceConnectWithoutContext("TotalBytesReceived",MakeCallback(&ReceivedPacket));
 // Finally, set up the simulator to run.  The 1000 second hard limit is a
 // failsafe in case some change above causes the simulation to never end
 Simulator::Stop (Seconds (simTime));
@@ -1086,7 +1102,7 @@ while (currentTxBytes < totalTxBytes && localSocket->GetTxAvailable () > 0)
   {
     if (!packettracefile.is_open())
     {
-        packettracefile.open("Packet_Trace_10B_Ue3_video_3BS_it1.csv", std::ios::out | std::ios::app);
+        packettracefile.open("Packet_Trace_20B_Ue1_video_3BS_it1.csv", std::ios::out | std::ios::app);
         if (packettracefile.is_open())
         {
           packettracefile << "Time (s),currentTxBytes, left, dataOffset, toWrite, amountSent" << std::endl;

@@ -57,7 +57,7 @@ NS_LOG_COMPONENT_DEFINE ("McTwoEnbs");
 
 
 // The number of bytes to send in this simulation.
-static const uint32_t totalTxBytes = 100000000;
+static const uint32_t totalTxBytes = 1000000;
 static uint32_t currentTxBytes = 0;
 // Perform series of 1040 byte writes (this is a multiple of 26 since
 // we want to detect data splicing in the output stream)
@@ -76,12 +76,12 @@ double energy_per_byte;
 //   NS_LOG_INFO ("Moving cwnd from " << oldval << " to " << newval);
 // }
 
-std::ofstream packetSinkFile("packetsink_0B_Ue6_100MB_3BS.csv", std::ios::out | std::ios::trunc);
+std::ofstream packetSinkFile("packetsink_10B_Ue3_1MB_3BS_it2.csv", std::ios::out | std::ios::trunc);
 void ReceivedPacket(double totaloldbytesReceived, double totalnewbytesReceived)
 {
   if (!packetSinkFile.is_open())
     {
-        packetSinkFile.open("packetsink_0B_Ue6_100MB_3BS.csv", std::ios::out | std::ios::app);
+        packetSinkFile.open("packetsink_10B_Ue3_1MB_3BS_it2.csv", std::ios::out | std::ios::app);
         if (packetSinkFile.is_open())
         {
             packetSinkFile << "Time (s),Total Packets (bytes), Current Packet (bytes), Energy/Bytes" << std::endl;
@@ -267,8 +267,8 @@ OverlapWithAnyPrevious (Box box, std::list<Box> m_previousBlocks)
 }
 
 std::ofstream energyFile;
-std::ofstream packettracefile("Packet_Trace_0B_Ue6_100MB_3BS.csv", std::ios::out | std::ios::trunc);
-std::ofstream energyFileBS("energy_consumptionBS_0B_Ue6_100MB_3BS.csv", std::ios::out | std::ios::trunc);
+std::ofstream packettracefile("Packet_Trace_10B_Ue3_1MB_3BS_it2.csv", std::ios::out | std::ios::trunc);
+std::ofstream energyFileBS("energy_consumptionBS_10B_Ue3_1MB_3BS_it2.csv", std::ios::out | std::ios::trunc);
 
 
 void
@@ -276,7 +276,7 @@ EnergyConsumptionUpdateBS (double totaloldEnergyConsumption, double totalnewEner
 {
   if (!energyFileBS.is_open())
     {
-        energyFileBS.open("energy_consumptionBS_0B_Ue6_100MB_3BS.csv", std::ios::out | std::ios::app);
+        energyFileBS.open("energy_consumptionBS_10B_Ue3_1MB_3BS_it2.csv", std::ios::out | std::ios::app);
         if (energyFileBS.is_open())
         {
             energyFileBS << "Time (s),Total Energy Consumption (J),Energy Difference (J)" << std::endl;
@@ -300,7 +300,7 @@ EnergyConsumptionUpdate (double totaloldEnergyConsumption, double totalnewEnergy
 {
   if (!energyFile.is_open())
     {
-        energyFile.open("energy_consumption_0B_Ue6_100MB_3BS.csv", std::ios::out | std::ios::app);
+        energyFile.open("energy_consumption_10B_Ue3_1MB_3BS_it2.csv", std::ios::out | std::ios::app);
         if (energyFile.is_open())
         {
             energyFile << "Time (s),Total Energy Consumption (J),Energy Difference (J)" << std::endl;
@@ -391,7 +391,7 @@ static ns3::GlobalValue g_mobileUeSpeed ("mobileSpeed", "The speed of the UE (m/
 static ns3::GlobalValue g_rlcAmEnabled ("rlcAmEnabled", "If true, use RLC AM, else use RLC UM",
                                         ns3::BooleanValue (true), ns3::MakeBooleanChecker ());
 static ns3::GlobalValue g_maxXAxis ("maxXAxis", "The maximum X coordinate for the area in which to deploy the buildings",
-                                    ns3::DoubleValue (90), ns3::MakeDoubleChecker<double> ());
+                                    ns3::DoubleValue (150), ns3::MakeDoubleChecker<double> ());
 static ns3::GlobalValue g_maxYAxis ("maxYAxis", "The maximum Y coordinate for the area in which to deploy the buildings",
                                     ns3::DoubleValue (90), ns3::MakeDoubleChecker<double> ());
 static ns3::GlobalValue g_outPath ("outPath",
@@ -429,13 +429,13 @@ main (int argc, char *argv[])
   BooleanValue booleanValue;
   StringValue stringValue;
   DoubleValue doubleValue;
-  // EnumValue enumValue;
-  // GlobalValue::GetValueByName ("numBlocks", uintegerValue);
-  // uint32_t numBlocks = uintegerValue.Get ();
-  // GlobalValue::GetValueByName ("maxXAxis", doubleValue);
-  // double maxXAxis = doubleValue.Get ();
-  // GlobalValue::GetValueByName ("maxYAxis", doubleValue);
-  // double maxYAxis = doubleValue.Get ();
+  EnumValue enumValue;
+  GlobalValue::GetValueByName ("numBlocks", uintegerValue);
+  uint32_t numBlocks = uintegerValue.Get ();
+  GlobalValue::GetValueByName ("maxXAxis", doubleValue);
+  double maxXAxis = doubleValue.Get ();
+  GlobalValue::GetValueByName ("maxYAxis", doubleValue);
+  double maxYAxis = doubleValue.Get ();
 
   // double ueInitialPosition = 78;
   //double ueFinalPosition = 78;
@@ -546,8 +546,8 @@ main (int argc, char *argv[])
   Config::SetDefault ("ns3::LteRlcUmLowLat::MaxTxBufferSize", UintegerValue (bufferSize * 1024 * 1024));
   Config::SetDefault ("ns3::LteRlcAm::StatusProhibitTimer", TimeValue (MilliSeconds (10.0)));
   Config::SetDefault ("ns3::LteRlcAm::MaxTxBufferSize", UintegerValue (bufferSize * 1024 * 1024));
-  Config::SetDefault ("ns3::MmWaveBearerStatsConnector::MmWaveSinrOutputFilename", StringValue("MmWaveSinrTime_0B_Ue6_100MB_3BS.txt"));
-  Config::SetDefault ("ns3::MmWaveBearerStatsConnector::UeHandoverStartOutputFilename", StringValue("Ue_handover_constpos0B_100MB_3BS_Ue6.txt"));
+  Config::SetDefault ("ns3::MmWaveBearerStatsConnector::MmWaveSinrOutputFilename", StringValue("MmWaveSinrTime_10B_Ue3_1MB_3BS_it2.txt"));
+  Config::SetDefault ("ns3::MmWaveBearerStatsConnector::UeHandoverStartOutputFilename", StringValue("Ue_handover_constpos10B_1MB_3BS_Ue3_it2.txt"));
   // handover and RT related params
   switch (hoMode)
     {
@@ -647,32 +647,32 @@ main (int argc, char *argv[])
   Vector mmw2Position = Vector (50, 100, 3);
   Vector mmw3Position = Vector (250, 100, 3);
 
-  // std::vector<Ptr<Building> > buildingVector;
-  // double maxBuildingSize = 30;
+  std::vector<Ptr<Building> > buildingVector;
+  double maxBuildingSize = 35;
 
-  // for (uint32_t buildingIndex = 0; buildingIndex < numBlocks; buildingIndex++)
-  //   {
-  //     Ptr < Building > building;
-  //     building = Create<Building> ();
+  for (uint32_t buildingIndex = 0; buildingIndex < numBlocks; buildingIndex++)
+    {
+      Ptr < Building > building;
+      building = Create<Building> ();
       /* returns a vecotr where:
       * position [0]: coordinates for x min
       * position [1]: coordinates for x max
       * position [2]: coordinates for y min
       * position [3]: coordinates for y max
       */
-  //     std::pair<Box, std::list<Box> > pairBuildings = GenerateBuildingBounds (maxXAxis, maxYAxis, maxBuildingSize, m_previousBlocks);
-  //     m_previousBlocks = std::get<1> (pairBuildings);
-  //     Box box = std::get<0> (pairBuildings);
-  //     Ptr<UniformRandomVariable> randomBuildingZ = CreateObject<UniformRandomVariable> ();
-  //     randomBuildingZ->SetAttribute ("Min",DoubleValue (-50));
-  //     randomBuildingZ->SetAttribute ("Max",DoubleValue (40));
-  //     double buildingHeight = randomBuildingZ->GetValue ();
+      std::pair<Box, std::list<Box> > pairBuildings = GenerateBuildingBounds (maxXAxis, maxYAxis, maxBuildingSize, m_previousBlocks);
+      m_previousBlocks = std::get<1> (pairBuildings);
+      Box box = std::get<0> (pairBuildings);
+      Ptr<UniformRandomVariable> randomBuildingZ = CreateObject<UniformRandomVariable> ();
+      randomBuildingZ->SetAttribute ("Min",DoubleValue (-40));
+      randomBuildingZ->SetAttribute ("Max",DoubleValue (50));
+      double buildingHeight = randomBuildingZ->GetValue ();
 
-  //     building->SetBoundaries (Box (box.xMin, box.xMax,
-  //                                   box.yMin,  box.yMax,
-  //                                   0.0, buildingHeight));
-  //     buildingVector.push_back (building);
-  //  }
+      building->SetBoundaries (Box (box.xMin, box.xMax,
+                                    box.yMin,  box.yMax,
+                                    0.0, buildingHeight));
+      buildingVector.push_back (building);
+   }
 
 
   // building1->SetBoundaries (Box (45, 60,
@@ -802,7 +802,7 @@ main (int argc, char *argv[])
   MobilityHelper uemobility;
   Ptr<ListPositionAllocator> uePositionAlloc = CreateObject<ListPositionAllocator> ();
   //uePositionAlloc->Add (Vector (ueInitialPosition, -5, 0));
-  uePositionAlloc->Add (Vector (100, -75, 1.6));
+  uePositionAlloc->Add (Vector (70, 0, 1.6));
   uemobility.SetMobilityModel ("ns3::ConstantPositionMobilityModel");
   uemobility.SetPositionAllocator (uePositionAlloc);
   uemobility.Install (ueNodes);
@@ -931,7 +931,7 @@ while (currentTxBytes < totalTxBytes && localSocket->GetTxAvailable () > 0)
   {
     if (!packettracefile.is_open())
     {
-        packettracefile.open("Packet_Trace_0B_Ue6_100MB_3BS.csv", std::ios::out | std::ios::app);
+        packettracefile.open("Packet_Trace_10B_Ue3_1MB_3BS_it2.csv", std::ios::out | std::ios::app);
         if (packettracefile.is_open())
         {
           packettracefile << "Time (s),currentTxBytes, left, dataOffset, toWrite, amountSent" << std::endl;
